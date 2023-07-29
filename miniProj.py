@@ -21,7 +21,7 @@ def find_item():
     item_name = simpledialog.askstring("Find Item", "Enter Item Name:")
     conn = create_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM Items WHERE name=?", (item_name,))
+    cur.execute("SELECT * FROM Items WHERE title=?", (item_name,))
     items = cur.fetchall()
     
     if items:
@@ -36,7 +36,7 @@ def borrow_item():
     
     conn = create_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO Borrowings (userID, itemID, borrow_date, due_date) VALUES (?, ?, '2023-07-25', '2023-08-25')", (userID, itemID))
+    cur.execute("INSERT INTO Loans (userID, itemID, borrow_date, due_date) VALUES (?, ?, '2023-07-25', '2023-08-25')", (userID, itemID))
     conn.commit()
     conn.close()
     messagebox.showinfo("Success", f"Borrowed item {itemID}")
@@ -48,7 +48,7 @@ def return_item():
     
     conn = create_connection()
     cur = conn.cursor()
-    cur.execute("DELETE FROM Borrowings WHERE userID=? AND itemID=?", (userID, itemID))
+    cur.execute("DELETE FROM Loans WHERE userID=? AND itemID=?", (userID, itemID))
     conn.commit()
     conn.close()
     messagebox.showinfo("Success", f"Returned item {itemID}")
@@ -83,14 +83,39 @@ def register_event():
     play_sound()
     userID = simpledialog.askinteger("Register for Event", "Enter your User ID:")
     eventID = simpledialog.askinteger("Register for Event", "Enter Event ID to register:")
-    # For simplicity, we're not adding a new table for event registration, but ideally, you'd want one.
+    
+    conn = create_connection()
+    cur = conn.cursor()
+    
+    # Check if user is already registered
+    cur.execute("SELECT * FROM EventRegistrations WHERE CustomerID=? AND EventID=?", (userID, eventID))
+    registrations = cur.fetchall()
+    if registrations:
+        messagebox.showerror("Error", "You're already registered for this event!")
+        return
+
+    cur.execute("INSERT INTO EventRegistrations (CustomerID, EventID, DateRegistered) VALUES (?, ?, date('now'))", (userID, eventID))
+    conn.commit()
+    conn.close()
     messagebox.showinfo("Success", f"Registered for event {eventID}")
+
 
 def ask_librarian():
     play_sound()
     query = simpledialog.askstring("Ask a Librarian", "Enter your query:")
-    # In a real-world scenario, this query would be stored and sent to librarians, but for now, we'll show a simple acknowledgment.
-    messagebox.showinfo("Success", "Your query has been submitted! A librarian will get back to you soon.")
+    
+    if query:  # Check if the user provided a query (didn't just close the dialog box)
+        conn = create_connection()
+        cur = conn.cursor()
+        # Assuming a fixed userID for the example, ideally, this would be fetched dynamically
+        userID = 1  
+        cur.execute("INSERT INTO Queries (QueryText, UserID) VALUES (?, ?)", (query, userID))
+        conn.commit()
+        conn.close()
+
+        messagebox.showinfo("Success", "Your query has been submitted! A librarian will get back to you soon.")
+    else:
+        messagebox.showwarning("Warning", "Query not provided!")
 
 def main():
     root = tk.Tk()
