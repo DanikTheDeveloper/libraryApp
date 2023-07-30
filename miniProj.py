@@ -305,7 +305,7 @@ def volunteer_for_library():
         # If no matching record, insert the customer into the Employees table as a volunteer
         cur.execute("INSERT INTO Employees (Name, Type) VALUES (?, 'Volunteering')", (name,))
         conn.commit()
-        messagebox.showinfo("Success", f"We will review your volunteering application, {get_logged_in_customer_name(current_user_id)}.")
+        messagebox.showinfo("Success", f"Now you are a volunteer, {get_logged_in_customer_name(current_user_id)}.")
     
     conn.close()
 
