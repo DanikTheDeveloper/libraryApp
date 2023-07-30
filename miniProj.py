@@ -247,7 +247,7 @@ def register_event():
     conn = create_connection()
     cur = conn.cursor()
 
-    cur.execute("UPDATE Events SET numberOfAttendees = numberOfAttendees + 1 WHERE EventID=?", (eventID,))
+    cur.execute("UPDATE Events SET Number_of_Attendees = Number_of_Attendees + 1 WHERE EventID=?", (eventID,))
     conn.commit()
     conn.close()
 
@@ -263,7 +263,7 @@ def ask_librarian():
         conn = create_connection()
         cur = conn.cursor()
 
-        cur.execute("INSERT INTO Queries (QueryText, UserID, EmployeeID) VALUES (?, ?, ?)", (query, current_user_id, random_employee))
+        cur.execute("INSERT INTO Queries (QueryText, CustomerID, EmployeeID) VALUES (?, ?, ?)", (query, current_user_id, random_employee))
         conn.commit()
         conn.close()
 
