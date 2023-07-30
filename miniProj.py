@@ -13,6 +13,8 @@ def play_sound():
 current_user_id = None
 login_window = None
 main_window = None
+loans_label = None
+balance_label = None
 
 def get_current_balance():
     conn = create_connection()
@@ -123,10 +125,10 @@ def borrow_item():
     global current_user_id
     play_sound()
     itemID = simpledialog.askinteger("Borrow Item", "Enter Item ID:")
-    
+
     today = datetime.date.today()
     due_date = today + datetime.timedelta(days=30)  # 30 days loan period
-    
+
     conn = create_connection()
     cur = conn.cursor()
 
@@ -150,11 +152,12 @@ def borrow_item():
 
     cur.execute("UPDATE Items SET Stock = Stock - 1 WHERE ItemID=?", (itemID,))
     cur.execute("INSERT INTO Loans (CustomerID, ItemID, LoanDate, DueDate, ReturnDate) VALUES (?, ?, ?, ?, NULL)", (current_user_id, itemID, today, due_date))
-    
+    cur.execute("UPDATE Customers SET NumberOfLoans = NumberOfLoans + 1 WHERE CustomerID=?", (current_user_id,))
+
     conn.commit()
     conn.close()
     messagebox.showinfo("Success", f"Borrowed item {itemID}. Due on {due_date}")
-
+    update_loan_display()
 
 
 def return_item():
@@ -170,7 +173,7 @@ def return_item():
     # Check if the item was actually borrowed by the user
     cur.execute("SELECT LoanDate FROM Loans WHERE CustomerID=? AND ItemID=? AND ReturnDate IS NULL", (current_user_id, itemID))
     loan_record = cur.fetchone()
-    
+
     if not loan_record:
         messagebox.showerror("Error", "Loan record not found or item already returned!")
         return
@@ -183,9 +186,9 @@ def return_item():
 
     # Update the return date for the loan
     cur.execute("UPDATE Loans SET ReturnDate = ? WHERE CustomerID=? AND ItemID=?", (today, current_user_id, itemID))
-
     # Increase the stock by 1 for the returned item
     cur.execute("UPDATE Items SET Stock = Stock + 1 WHERE ItemID=?", (itemID,))
+    cur.execute("UPDATE Customers SET NumberOfLoans = NumberOfLoans - 1 WHERE CustomerID=?", (current_user_id,))
 
     conn.commit()
     conn.close()
@@ -204,11 +207,9 @@ def return_item():
         messagebox.showinfo("Fine Due", f"You owe a fine of ${fine}. Your balance has been updated.")
     else:
         messagebox.showinfo("Success", "Book returned successfully!")
+    update_balance_display()
+    update_loan_display()
 
-
-def update_balance_display():
-    balance = get_current_balance()
-    lbl_balance.config(text=f"Current Balance: ${balance:.2f}")
 
 def donate_item():
     play_sound()
@@ -272,6 +273,42 @@ def register_event():
     conn.close()
 
     messagebox.showinfo("Success", f"Registered for event {eventID}")
+    update_balance_display()
+
+def get_logged_in_customer_name(customer_id):
+    conn = create_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT Name FROM Customers WHERE CustomerID = ?", (customer_id,))
+    name = cur.fetchone()
+
+    conn.close()
+    return name[0] if name else None
+
+def volunteer_for_library():
+    play_sound()
+
+    # Get the logged in customer's name (assuming you have a variable 'logged_in_customer' storing this info)
+    name = current_user_id
+
+    conn = create_connection()
+    cur = conn.cursor()
+    
+    # Check if the customer has already applied
+    cur.execute("SELECT * FROM Employees WHERE Name = ? AND Type = 'Volunteering'", (name,))
+    result = cur.fetchone()
+    
+    if result:
+        # If result is not None, it means a record exists
+        messagebox.showinfo("Already Applied", f"You've already applied for volunteering, {get_logged_in_customer_name(current_user_id)}.")
+    else:
+        # If no matching record, insert the customer into the Employees table as a volunteer
+        cur.execute("INSERT INTO Employees (Name, Type) VALUES (?, 'Volunteering')", (name,))
+        conn.commit()
+        messagebox.showinfo("Success", f"We will review your volunteering application, {get_logged_in_customer_name(current_user_id)}.")
+    
+    conn.close()
+
 
 def ask_librarian():
     play_sound()
@@ -292,7 +329,6 @@ def ask_librarian():
         messagebox.showwarning("Warning", "Query not provided!")
 
 
-
 def get_random_employee():
     conn = create_connection()
     cur = conn.cursor()
@@ -300,19 +336,82 @@ def get_random_employee():
     all_employee_ids = [item[0] for item in cur.fetchall()]
     return random.choice(all_employee_ids)
 
+def update_balance_display():
+    global loans_label, balance_label
+
+    # Fetch the updated balance and loans count
+    conn = create_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT NumberOfLoans, Balance FROM Customers WHERE CustomerID = ?", (current_user_id,))
+    data = cur.fetchone()
+    number_of_loans = data[0]
+    balance = data[1]
+    conn.close()
+
+    # Update the labels
+    loans_label.config(text=f"Number of Loans: {number_of_loans}")
+    balance_label.config(text=f"Balance: ${balance}")
+
+def update_loan_display():
+    conn = create_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM Loans WHERE CustomerID = ? AND ReturnDate IS NULL", (current_user_id,))
+    data = cur.fetchone()
+    number_of_loans = data[0]
+    conn.close()
+
+    # Update loans_var
+    loans_var.set(f"Number of Loans: {number_of_loans}")
 
 def main_screen():
-    global main_window, lbl_balance
+    global main_window, loans_label, balance_label, loans_var
     main_window = tk.Tk()
     main_window.title("Library Application")
+    
+    loans_var = tk.StringVar()
 
     main_window.configure(bg='#f0f8ff')
+    
+    # Define default configurations
+    default_label_config = {
+        'bg': '#f0f8ff',
+        'font': ('Arial', 12)
+    }
+
+    default_button_config = {
+        'bg': '#007acc',
+        'fg': 'white',
+        'padx': 20,
+        'pady': 10,
+        'font': ('Arial', 12),
+        'activebackground': '#005da2',
+        'width': 20
+    }
+
     lbl_title = tk.Label(main_window, text="Library Application", bg='#f0f8ff', font=("Arial", 24))
     lbl_title.pack(pady=20)
 
-    balance = get_current_balance()
-    lbl_balance = tk.Label(main_window, text=f"Current Balance: ${balance:.2f}", bg='#f0f8ff', font=("Arial", 18))
-    lbl_balance.pack(pady=10)
+    name = get_logged_in_customer_name(current_user_id)
+
+    conn = create_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT NumberOfLoans, Balance FROM Customers WHERE CustomerID = ?", (current_user_id,))
+    data = cur.fetchone()
+    number_of_loans = data[0]
+    balance = data[1]
+    conn.close()
+
+    # Create labels for customer info with the default configuration
+    customer_info_label = tk.Label(main_window, text=f"Customer: {name}", **default_label_config)
+    customer_info_label.pack()
+
+    loans_label = tk.Label(main_window, textvariable=loans_var, **default_label_config)
+    loans_label.pack(pady=10)
+
+    balance_label = tk.Label(main_window, text=f"Balance: ${balance}", **default_label_config)
+    balance_label.pack()
+
+    update_loan_display()
 
     button_config = {
         'bg': '#007acc',
@@ -345,11 +444,16 @@ def main_screen():
     btn_ask_librarian = tk.Button(main_window, text="Ask a Librarian", command=ask_librarian, **button_config)
     btn_ask_librarian.pack(pady=10)
 
+    btn_volunteer = tk.Button(main_window, text="Volunteer for Library", command=volunteer_for_library, **button_config)
+    btn_volunteer.pack(pady=10)
+
     btn_add_balance = tk.Button(main_window, text="Add Balance", command=add_balance, **button_config)
     btn_add_balance.pack(pady=10)
 
     btn_logout = tk.Button(main_window, text="Logout", command=logout, **button_config)
     btn_logout.pack(pady=10)
+
+    lbl_title = tk.Label(login_window, text="Library Application", **default_label_config)
 
     main_window.mainloop()
 
