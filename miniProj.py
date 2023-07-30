@@ -36,7 +36,7 @@ def borrow_item():
     
     conn = create_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO Loans (userID, itemID, borrow_date, due_date) VALUES (?, ?, '2023-07-25', '2023-08-25')", (userID, itemID))
+    cur.execute("INSERT INTO Loans (CustomerID, ItemID, LoanDate, DueDate, ReturnDate) VALUES (?, ?, '2023-07-25', '2023-08-25')", (userID, itemID))
     conn.commit()
     conn.close()
     messagebox.showinfo("Success", f"Borrowed item {itemID}")
@@ -55,15 +55,25 @@ def return_item():
 
 def donate_item():
     play_sound()
-    item_name = simpledialog.askstring("Donate Item", "Enter Item Name:")
+    
     item_type = simpledialog.askstring("Donate Item", "Enter Item Type (e.g. book, CD, journal):")
+    item_title = simpledialog.askstring("Donate Item", "Enter Item Title:")
+    author_artist = simpledialog.askstring("Donate Item", "Enter Author/Artist:")
+    publication_year = simpledialog.askinteger("Donate Item", "Enter Publication Year:")
+    genre = simpledialog.askstring("Donate Item", "Enter Genre:")
+    
+    # Assuming all donated items start as 'Available' and with a stock of 1
+    availability = 'Available'
+    stock = 1
     
     conn = create_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO Items (name, type) VALUES (?, ?)", (item_name, item_type))
+    cur.execute("INSERT INTO Items (Type, Title, AuthorArtist, PublicationYear, Genre, Availability, Stock) VALUES (?, ?, ?, ?, ?, ?, ?)", (item_type, item_title, author_artist, publication_year, genre, availability, stock))
+    
     conn.commit()
     conn.close()
-    messagebox.showinfo("Success", f"Thank you for donating {item_name}!")
+    
+    messagebox.showinfo("Success", f"Thank you for donating {item_title}!")
 
 def find_event():
     play_sound()
@@ -87,33 +97,59 @@ def register_event():
     conn = create_connection()
     cur = conn.cursor()
     
-    # Check if user is already registered
+    # Check if the user has already registered for the event
     cur.execute("SELECT * FROM EventRegistrations WHERE CustomerID=? AND EventID=?", (userID, eventID))
     registrations = cur.fetchall()
+    
     if registrations:
         messagebox.showerror("Error", "You're already registered for this event!")
         return
 
+    # Check if the event exists
+    cur.execute("SELECT * FROM Events WHERE EventID=?", (eventID,))
+    event_data = cur.fetchone()
+    
+    if not event_data:
+        messagebox.showerror("Error", "The specified event does not exist!")
+        return
+
+    # Insert the registration into EventRegistrations
     cur.execute("INSERT INTO EventRegistrations (CustomerID, EventID, DateRegistered) VALUES (?, ?, date('now'))", (userID, eventID))
     conn.commit()
     conn.close()
+    
     messagebox.showinfo("Success", f"Registered for event {eventID}")
 
 
+def get_random_employee():
+    """Fetch a random librarian (EmployeeID) from the database."""
+    conn = create_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT EmployeeID FROM Events")
+    all_employee_ids = [item[0] for item in cur.fetchall()]
+    return random.choice(all_employee_ids)
+
 def ask_librarian():
     play_sound()
+
+    # Get the user ID
+    userID = simpledialog.askinteger("Ask a Librarian", "Enter your User ID:")
+
+    if userID is None:  # If the user closed the dialog or entered nothing
+        return
+
     query = simpledialog.askstring("Ask a Librarian", "Enter your query:")
     
     if query:  # Check if the user provided a query (didn't just close the dialog box)
+        random_employee = get_random_employee()
         conn = create_connection()
         cur = conn.cursor()
-        # Assuming a fixed userID for the example, ideally, this would be fetched dynamically
-        userID = 1  
-        cur.execute("INSERT INTO Queries (QueryText, UserID) VALUES (?, ?)", (query, userID))
+
+        cur.execute("INSERT INTO Queries (QueryText, UserID, EmployeeID) VALUES (?, ?, ?)", (query, userID, random_employee))
         conn.commit()
         conn.close()
 
-        messagebox.showinfo("Success", "Your query has been submitted! A librarian will get back to you soon.")
+        messagebox.showinfo("Success", f"Your query has been submitted! Librarian with ID {random_employee} will get back to you soon.")
     else:
         messagebox.showwarning("Warning", "Query not provided!")
 
@@ -121,7 +157,6 @@ def main():
     root = tk.Tk()
     root.title("Library Application")
 
-    # Design enhancements
     root.configure(bg='#f0f8ff')  
     lbl_title = tk.Label(root, text="Library Application", bg='#f0f8ff', font=("Arial", 24))
     lbl_title.pack(pady=20)
