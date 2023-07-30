@@ -102,9 +102,21 @@ def find_item():
     items = cur.fetchall()
     
     if items:
-        messagebox.showinfo("Result", f"Found {items[0][1]} of type {items[0][2]}")
+        item_data = items[0]
+        info = (
+            f"ItemID: {item_data[0]}\n"
+            f"Type: {item_data[1]}\n"
+            f"Title: {item_data[2]}\n"
+            f"Author/Artist: {item_data[3]}\n"
+            f"Publication Year: {item_data[4]}\n"
+            f"Genre: {item_data[5]}\n"
+            f"Availability: {item_data[6]}\n"
+            f"Stock: {item_data[7]}\n"
+        )
+        messagebox.showinfo("Result", info)
     else:
         messagebox.showerror("Error", "Item not found!")
+
 
 
 def borrow_item():
@@ -117,6 +129,13 @@ def borrow_item():
     
     conn = create_connection()
     cur = conn.cursor()
+
+    # Check if the user already has a loan for the same item which hasn't been returned yet
+    cur.execute("SELECT * FROM Loans WHERE CustomerID=? AND ItemID=? AND ReturnDate IS NULL", (current_user_id, itemID))
+    existing_loan = cur.fetchone()
+    if existing_loan:
+        messagebox.showinfo("Error", "You have already borrowed this item and haven't returned it. You cannot borrow the same item twice in a row.")
+        return
 
     cur.execute("SELECT Stock FROM Items WHERE ItemID=?", (itemID,))
     item = cur.fetchone()
@@ -135,6 +154,7 @@ def borrow_item():
     conn.commit()
     conn.close()
     messagebox.showinfo("Success", f"Borrowed item {itemID}. Due on {due_date}")
+
 
 
 def return_item():
