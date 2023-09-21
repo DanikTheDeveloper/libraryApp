@@ -256,68 +256,24 @@ def find_event():
     events = cur.fetchall()
     
     if events:
-        event = events[0]
-        messagebox.showinfo("Result", f"Found event {event[1]} in the room {event[2]}. Price: {event[5]} Audience: {event[4]} Attendees: {event[6]}/{event[7]}")
+        messagebox.showinfo("Result", f"Found event {events[0][1]} on date {events[0][2]}")
     else:
         messagebox.showerror("Error", "Event not found!")
-
 
 def register_event():
     play_sound()
     
-    # Step 1: Get the name of the currently logged-in user
-    customer_name = get_logged_in_customer_name(current_user_id)
-    if not customer_name:
-        messagebox.showerror("Error", "There's an issue fetching the user details!")
-        return
-
     eventID = simpledialog.askinteger("Register for Event", "Enter Event ID to register:")
 
     conn = create_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM Events WHERE EventID=?", (eventID,))
-    events = cur.fetchall()
 
-    if not events:
-        messagebox.showerror("Error", "Event not found!")
-        return
-    
-    event = events[0]
-    price = event[5]
-    
-    cur.execute("SELECT Balance FROM Customers WHERE Name=?", (customer_name,))
-    customer = cur.fetchone()
-
-    if not customer:
-        messagebox.showerror("Error", "Customer not found!")
-        return
-    
-    balance = customer[0]
-
-    if balance < price:
-        messagebox.showerror("Error", "Insufficient funds!")
-        return
-
-    new_balance = balance - price
-
-    cur.execute("UPDATE Customers SET Balance=? WHERE Name=?", (new_balance, customer_name))
     cur.execute("UPDATE Events SET Number_of_Attendees = Number_of_Attendees + 1 WHERE EventID=?", (eventID,))
     conn.commit()
     conn.close()
 
-    messagebox.showinfo("Success", f"Registered for event {event[2]}. New balance: {new_balance}")
+    messagebox.showinfo("Success", f"Registered for event {eventID}")
     update_balance_display()
-
-def get_logged_in_customer_name(customer_id):
-    conn = create_connection()
-    cur = conn.cursor()
-
-    cur.execute("SELECT Name FROM Customers WHERE CustomerID = ?", (customer_id,))
-    name = cur.fetchone()
-
-    conn.close()
-    return name[0] if name else None
-
 
 def get_logged_in_customer_name(customer_id):
     conn = create_connection()
@@ -349,7 +305,7 @@ def volunteer_for_library():
         # If no matching record, insert the customer into the Employees table as a volunteer
         cur.execute("INSERT INTO Employees (Name, Type) VALUES (?, 'Volunteering')", (name,))
         conn.commit()
-        messagebox.showinfo("Success", f"Now you are a volunteer, {get_logged_in_customer_name(current_user_id)}.")
+        messagebox.showinfo("Success", f"We will review your volunteering application, {get_logged_in_customer_name(current_user_id)}.")
     
     conn.close()
 
