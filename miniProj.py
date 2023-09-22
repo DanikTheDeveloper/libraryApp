@@ -5,10 +5,18 @@ import winsound
 import datetime
 import math
 import random
+import os
+
+IS_WINDOWS = os.name == 'nt'
+
+if IS_WINDOWS:
+    import winsound
 
 def play_sound():
-    winsound.PlaySound('C:\\Windows\\Media\\Windows Information Bar.wav', winsound.SND_ASYNC)
-
+    if IS_WINDOWS:
+        winsound.PlaySound('C:\\Windows\\Media\\Windows Information Bar.wav', winsound.SND_ASYNC)
+    else:
+        print("Sound playback is not supported on this platform.")
 
 current_user_id = None
 login_window = None

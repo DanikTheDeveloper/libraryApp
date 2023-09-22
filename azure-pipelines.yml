@@ -1,37 +1,47 @@
-# Python package
-# Create and test a Python package on multiple Python versions.
-# Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/python
-
 trigger:
-- F_Items-db-change
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - '*'  # This means any file in the repository.
+    exclude:
+      - '*.*'  # This excludes all files with a file extension, so only directories will match.
+      - '**/*.md'  # This ensures the pipeline doesn't run for markdown changes.
+
+pr: none  # This prevents the build from running when a pull request is opened.
 
 pool:
-  vmImage: ubuntu-latest
-strategy:
-  maxParallel: 1 # Only run one job at a time
-  matrix:
-    Python27:
-      python.version: '2.7'
-    Python35:
-      python.version: '3.5'
-    Python36:
-      python.version: '3.6'
-    Python37:
-      python.version: '3.7'
+  vmImage: 'windows-latest'  # Changed from 'ubuntu-latest' to 'windows-latest'
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '$(python.version)'
-  displayName: 'Use Python $(python.version)'
+jobs:
+  - job: InstallAndTest
+    strategy:
+      matrix:
+        Python38:
+          python.version: '3.8'
+        Python39:
+          python.version: '3.9'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+        addToPath: true
+      displayName: 'Use Python $(python.version)'
 
-- script: |
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-  displayName: 'Install dependencies'
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      displayName: 'Install dependencies'
 
-- script: |
-    pip install pytest pytest-azurepipelines
-    pytest unitTest.py
-  displayName: 'pytest'
+    # Running test_play_sound.py
+    - script: python -m unittest test_play_sound.py
+      displayName: 'Run test_play_sound.py'
+
+    # Running test_create_connection.py
+    - script: python -m unittest test_create_connection.py
+      displayName: 'Run test_create_connection.py'
+
+    # Running test_find_item.py
+    - script: python -m unittest test_find_item.py
+      displayName: 'Run test_find_item.py'
